@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|purge)
+        rm -f /etc/sudoers.d/openvpn-web
+        systemctl daemon-reload || true
+        ;;
+esac
+
+#DEBHELPER#

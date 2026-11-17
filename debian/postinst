@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        if ! getent passwd openvpn-web >/dev/null; then
+            adduser --system --group --home /var/lib/openvpn-web \
+                --no-create-home --shell /usr/sbin/nologin openvpn-web
+        fi
+        install -d -o openvpn-web -g openvpn-web -m 0700 /var/lib/openvpn-web
+        install -d -o root -g root -m 0755 /etc/openvpn/server
+        install -o root -g root -m 0440 \
+            /usr/share/openvpn-web/openvpn-web.sudoers \
+            /etc/sudoers.d/.openvpn-web.tmp
+        visudo -cf /etc/sudoers.d/.openvpn-web.tmp
+        mv /etc/sudoers.d/.openvpn-web.tmp /etc/sudoers.d/openvpn-web
+        systemctl daemon-reload
+        if [ -n "${2:-}" ]; then
+            deb-systemd-invoke restart openvpn-web.service || true
+        else
+            deb-systemd-invoke enable openvpn-web.service
+            deb-systemd-invoke start openvpn-web.service
+        fi
+        ;;
+esac
+
+#DEBHELPER#

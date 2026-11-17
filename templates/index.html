@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>OpenVPN Web 管理</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main id="app" class="shell">
+    <section id="auth-view" class="auth-card" hidden>
+      <div class="brand-mark">V</div>
+      <p class="eyebrow">OPENVPN · LOCAL ADMIN</p>
+      <h1 id="auth-title">管理员登录</h1>
+      <p id="auth-description" class="muted"></p>
+      <form id="auth-form">
+        <label id="setup-token-wrap" hidden>初始化令牌
+          <input id="setup-token" autocomplete="one-time-code" spellcheck="false">
+        </label>
+        <label>管理员密码
+          <input id="password" type="password" minlength="12" autocomplete="current-password" required>
+        </label>
+        <button id="auth-submit" class="button primary" type="submit">登录</button>
+      </form>
+      <p id="auth-error" class="error" role="alert"></p>
+      <p class="security-note">管理页面仅监听本机回环地址，不应直接暴露到公网。</p>
+    </section>
+
+    <section id="dashboard" hidden>
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark small">V</div>
+          <div><strong>OpenVPN Web</strong><span>本机服务端管理</span></div>
+        </div>
+        <div class="top-actions">
+          <span class="local-badge"><i></i> LOCAL ONLY</span>
+          <button id="logout" class="button quiet" type="button">退出登录</button>
+        </div>
+      </header>
+
+      <section class="welcome">
+        <div>
+          <p class="eyebrow">VPN CONTROL CENTER</p>
+          <h1>管理你的 VPN 服务</h1>
+          <p class="muted">配置服务端参数、管理客户端配置，并检查 OpenVPN 服务状态。</p>
+        </div>
+        <div class="status-card">
+          <span class="status-label">服务状态</span>
+          <strong id="service-status" class="status-value"><i class="status-dot"></i>读取中</strong>
+          <span id="service-detail" class="muted small-text"></span>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="管理页面">
+        <button class="tab active" data-tab="server">服务端配置</button>
+        <button class="tab" data-tab="clients">客户端配置</button>
+        <button class="tab" data-tab="service">服务控制</button>
+      </nav>
+
+      <section id="tab-server" class="panel">
+        <div class="panel-heading">
+          <div><h2>服务端参数</h2><p class="muted">保存后生成受限指令集的 OpenVPN 配置文件。</p></div>
+          <span class="pill">配置生成器</span>
+        </div>
+        <form id="config-form" class="form-grid">
+          <label>服务名称<input name="server_name" required pattern="[A-Za-z0-9_-]{1,32}"></label>
+          <label>监听端口<input name="port" type="number" min="1" max="65535" required></label>
+          <label>传输协议<select name="protocol"><option value="udp">UDP（推荐）</option><option value="tcp-server">TCP</option></select></label>
+          <label>虚拟设备<select name="device"><option value="tun">TUN（三层路由）</option></select></label>
+          <label>VPN IPv4 网段<input name="network" placeholder="10.8.0.0/24" required></label>
+          <label>DNS 地址（逗号分隔）<input name="dns" placeholder="1.1.1.1, 1.0.0.1" required></label>
+          <label>Keepalive 间隔（秒）<input name="keepalive_interval" type="number" min="1" max="60" required></label>
+          <label>Keepalive 超时（秒）<input name="keepalive_timeout" type="number" min="2" max="3600" required></label>
+          <label>最大客户端数<input name="max_clients" type="number" min="1" max="10000" required></label>
+          <div class="form-footer">
+            <span id="config-path" class="muted small-text"></span>
+            <button class="button primary" type="submit">保存并生成配置</button>
+          </div>
+        </form>
+        <details class="config-preview">
+          <summary>预览生成的 server.conf</summary>
+          <pre id="generated-config"></pre>
+        </details>
+      </section>
+
+      <section id="tab-clients" class="panel" hidden>
+        <div class="panel-heading">
+          <div><h2>客户端配置</h2><p class="muted">签发客户端证书生成可直接导入的配置，或导入已有的 .ovpn 文件。</p></div>
+          <span class="pill" id="profile-count">0 个配置</span>
+        </div>
+        <form id="generate-profile-form" class="profile-form generate-profile-form">
+          <label>客户端名称<input name="name" maxlength="32" pattern="[A-Za-z0-9_-]{1,32}" placeholder="例如：laptop-01" required></label>
+          <label>服务器公网 IP / 域名<input name="remote" maxlength="253" placeholder="例如：vpn.example.com" required></label>
+          <button class="button primary" type="submit">签发并生成配置</button>
+        </form>
+        <p class="security-note">生成文件内含客户端私钥，请妥善保管。服务器地址应是客户端可访问的公网地址或域名。</p>
+        <form id="profile-form" class="profile-form">
+          <label>客户端名称<input name="name" maxlength="64" placeholder="例如：laptop-01" required></label>
+          <label class="file-input">导入 .ovpn 文件<input id="profile-file" type="file" accept=".ovpn,text/plain" required></label>
+          <button class="button primary" type="submit">导入客户端</button>
+        </form>
+        <div id="profiles-list" class="profiles-list"></div>
+        <p class="security-note">客户端配置可能包含私钥；文件仅保存于本机数据目录，并且只对已登录管理员开放。</p>
+      </section>
+
+      <section id="tab-service" class="panel" hidden>
+        <div class="panel-heading">
+          <div><h2>OpenVPN 服务</h2><p class="muted">点击启动会准备本机服务端证书、写入配置并启动固定的 systemd 服务。</p></div>
+          <span class="pill">systemd</span>
+        </div>
+        <div class="service-info">
+          <div><span class="muted">systemd 单元</span><strong id="service-unit">未配置</strong></div>
+          <div><span class="muted">服务端配置文件</span><strong id="service-config-path">—</strong></div>
+        </div>
+        <div class="service-actions">
+          <button class="button primary service-action" data-action="start" type="button">启动</button>
+          <button class="button secondary service-action" data-action="restart" type="button">重启</button>
+          <button class="button danger service-action" data-action="stop" type="button">停止</button>
+          <button id="refresh-service" class="button quiet" type="button">刷新状态</button>
+        </div>
+        <p class="security-note">首次使用前需由系统管理员运行项目内的 <code>sudo ./install_backend.sh</code> 安装受限后端。首次启动会生成本机 CA 和服务端证书；客户端证书仍需单独签发，服务器公网访问还需配置防火墙与转发。</p>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <footer>OpenVPN Web · 首版仅限本机使用</footer>
+    </section>
+  </main>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

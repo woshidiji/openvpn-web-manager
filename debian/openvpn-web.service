@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenVPN Web Manager
+After=network.target
+
+[Service]
+Type=simple
+User=openvpn-web
+Group=openvpn-web
+WorkingDirectory=/usr/lib/openvpn-web
+Environment=OPENVPN_WEB_DATA_DIR=/var/lib/openvpn-web
+Environment=OPENVPN_CONFIG_PATH=/etc/openvpn/server/web.conf
+Environment=OPENVPN_WEB_PORT=18080
+Environment=OPENVPN_SERVICE_UNIT=openvpn-server@web.service
+ExecStart=/usr/bin/waitress-serve --call --listen=127.0.0.1:18080 app:create_app
+Restart=on-failure
+RestartSec=3
+UMask=0077
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
